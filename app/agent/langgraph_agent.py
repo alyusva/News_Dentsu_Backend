@@ -265,8 +265,8 @@ class NewsAgent:
                 state["article_category"] = "none"
                 return state
             
-            title = article.get("title", "").lower()
-            description = article.get("description", "").lower()
+            title = str(article.get("title", "") or "").lower()
+            description = str(article.get("description", "") or "").lower()
             content = f"{title} {description}"
             
             # Palabras clave expandidas y menos estrictas
@@ -322,7 +322,7 @@ class NewsAgent:
                 return state
             
             url = article.get("url", "")
-            title = article.get("title", "").lower().strip()
+            title = str(article.get("title", "") or "").lower().strip()
             
             # Limpiar URL
             clean_url = self._clean_url(url)
