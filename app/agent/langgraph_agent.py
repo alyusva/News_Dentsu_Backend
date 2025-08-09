@@ -245,7 +245,11 @@ class NewsAgent:
             index = state.get("current_article_index", 0)
             
             if index < len(raw_news):
-                state["current_article"] = raw_news[index]
+                # Validación robusta contra None
+                if raw_news[index] is not None and isinstance(raw_news[index], dict):
+                    state["current_article"] = raw_news[index]
+                else:
+                    state["current_article"] = {}
                 logger.info(f"🔄 NODO 3: Procesando artículo {index + 1}/{len(raw_news)}")
             else:
                 state["current_article"] = {}
@@ -523,13 +527,17 @@ class NewsAgent:
             
             logger.info(f"🚀 Iniciando LangGraph Agent para: {filter_type}")
             
-            # Ejecutar el grafo con límite de recursión aumentado significativamente
+            # VALIDACIÓN ROBUSTA: Envolver toda la ejecución en try-catch
+            try:
             result = self.graph.invoke(initial_state, config={"recursion_limit": 200})
             
             final_news = result.get("final_news", [])
             logger.info(f"🎯 LangGraph Agent completado: {len(final_news)} noticias")
             
             return final_news
+            except Exception as e:
+                logger.error(f"❌ Error crítico en LangGraph: {str(e)}")
+                return self._get_sample_news_by_filter(filter_type)
             
         except Exception as e:
             logger.error(f"Error en el agente de noticias: {str(e)}")
