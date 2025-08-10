@@ -273,28 +273,45 @@ class NewsAgent:
             description = str(article.get("description", "") or "").lower()
             content = f"{title} {description}"
             
-            # Palabras clave expandidas y menos estrictas
-            ai_keywords = [
-                "ai", "artificial intelligence", "machine learning", "neural", "gpt", "llm", 
-                "chatgpt", "openai", "deep learning", "algorithm", "tensorflow", "pytorch",
-                "computer vision", "nlp", "natural language processing", "automation",
-                "robotics", "generative ai", "cognitive computing", "data science",
-                "predictive", "intelligent", "smart", "tech", "innovation", "digital",
-                "model", "training", "neural network", "transformer", "language model"
+            # Palabras excluidas (noticias deportivas, entretenimiento, etc.)
+            excluded_keywords = [
+                "football", "soccer", "basketball", "tennis", "baseball", "golf", "sports",
+                "athletic", "player", "team", "match", "game", "score", "league", "tournament",
+                "championship", "fifa", "uefa", "nba", "nfl", "mlb", "olympics", "sport",
+                "racing", "boxing", "wrestling", "swimming", "cycling", "running", "fitness"
             ]
+            
+            # Verificar exclusiones primero
+            if any(keyword in content for keyword in excluded_keywords):
+                state["article_category"] = "none"
+                logger.info("🚫 Excluido: contiene palabras deportivas/entretenimiento")
+                return state
+            
+            # Palabras clave específicas de IA (más restrictivas)
+            ai_keywords = [
+                "artificial intelligence", "machine learning", "deep learning", "neural network",
+                "gpt", "llm", "language model", "chatgpt", "openai", "tensorflow", "pytorch",
+                "computer vision", "natural language processing", "nlp", "generative ai",
+                "ai model", "ai technology", "ai system", "ai platform", "ai solution",
+                "automation", "algorithm", "data science", "predictive analytics",
+                "cognitive computing", "ai development", "ai research", "ai startup"
+            ]
+            
+            # Palabras clave específicas de Marketing (más restrictivas)
             marketing_keywords = [
-                "marketing", "advertising", "campaign", "brand", "seo", "conversion", 
-                "digital marketing", "social media", "content marketing", "email marketing",
-                "influencer", "crm", "analytics", "google ads", "facebook ads", "roi",
-                "customer acquisition", "lead generation", "brand awareness", "business",
-                "sales", "promotion", "commerce", "advertising", "media", "engagement",
-                "customer", "client", "market", "revenue", "growth", "strategy"
+                "digital marketing", "content marketing", "email marketing", "social media marketing",
+                "marketing campaign", "advertising campaign", "brand strategy", "marketing automation",
+                "conversion rate", "customer acquisition", "lead generation", "marketing roi",
+                "programmatic advertising", "influencer marketing", "affiliate marketing",
+                "marketing technology", "martech", "adtech", "marketing platform",
+                "customer journey", "marketing analytics", "brand awareness", "marketing strategy",
+                "performance marketing", "growth marketing", "marketing funnel"
             ]
             
             has_ai = any(keyword in content for keyword in ai_keywords)
             has_marketing = any(keyword in content for keyword in marketing_keywords)
             
-            # Lógica más permisiva para "both"
+            # Lógica más estricta
             if filter_type == "ai" and has_ai:
                 state["article_category"] = "ai"
             elif filter_type == "marketing" and has_marketing:
@@ -302,10 +319,10 @@ class NewsAgent:
             elif filter_type == "both":
                 if has_ai and has_marketing:
                     state["article_category"] = "both"
-                elif has_ai:  # También acepta solo AI para "both"
-                    state["article_category"] = "both"
-                elif has_marketing:  # También acepta solo Marketing para "both"
-                    state["article_category"] = "both"
+                elif has_ai:
+                    state["article_category"] = "ai"
+                elif has_marketing:
+                    state["article_category"] = "marketing"
                 else:
                     state["article_category"] = "none"
             else:
@@ -356,12 +373,26 @@ class NewsAgent:
             logger.info("🔄 NODO 6: Procesando artículo válido...")
             article = state.get("current_article", {})
             
+            # Obtener fecha de publicación
+            published_at = article.get("publishedAt", "")
+            # Convertir fecha ISO a formato más legible si existe
+            if published_at:
+                try:
+                    from datetime import datetime
+                    dt = datetime.fromisoformat(published_at.replace('Z', '+00:00'))
+                    formatted_date = dt.strftime('%Y-%m-%d')
+                except:
+                    formatted_date = published_at
+            else:
+                formatted_date = ""
+            
             processed_article = {
                 "title": article.get("title", ""),
                 "description": article.get("description", "")[:200],
                 "url": article.get("url", ""),
-                "image": article.get("urlToImage") or "https://picsum.photos/400/200",
-                "category": state.get("article_category", "unknown")
+                "image": article.get("urlToImage") or "https://images.unsplash.com/photo-1488590528505-98d2b5aba04b?w=400&h=200&fit=crop",
+                "category": state.get("article_category", "unknown"),
+                "publishedAt": formatted_date
             }
             
             # Agregar a listas
@@ -546,27 +577,34 @@ class NewsAgent:
     def _get_sample_news_by_filter(self, filter_type: str) -> List[Dict[str, Any]]:
         """Obtener noticias de ejemplo específicas por filtro"""
         
+        from datetime import datetime, timedelta
+        today = datetime.now().strftime('%Y-%m-%d')
+        yesterday = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
+        
         ai_news = [
             {
                 "title": "OpenAI Introduces Advanced GPT-4 Turbo with Enhanced Capabilities",
                 "description": "New model features improved reasoning, longer context windows, and better instruction following for enterprise applications.",
                 "url": "https://example.com/openai-gpt4-turbo",
-                "image": "https://picsum.photos/400/200?random=1",
-                "category": "ai"
+                "image": "https://images.unsplash.com/photo-1677442136019-21780ecad995?w=400&h=200&fit=crop",
+                "category": "ai",
+                "publishedAt": today
             },
             {
                 "title": "Google's Gemini Ultra Achieves Human-Level Performance on MMLU Benchmark", 
                 "description": "Latest AI model demonstrates remarkable capabilities across diverse academic subjects and professional domains.",
                 "url": "https://example.com/google-gemini-ultra",
-                "image": "https://picsum.photos/400/200?random=2",
-                "category": "ai"
+                "image": "https://images.unsplash.com/photo-1488590528505-98d2b5aba04b?w=400&h=200&fit=crop",
+                "category": "ai",
+                "publishedAt": yesterday
             },
             {
                 "title": "Microsoft Copilot Integration Transforms Workplace Productivity",
                 "description": "AI assistant now embedded across Office suite, enabling natural language document creation and data analysis.",
                 "url": "https://example.com/microsoft-copilot",
-                "image": "https://picsum.photos/400/200?random=3",
-                "category": "ai"
+                "image": "https://images.unsplash.com/photo-1485827404703-89b55fcc595e?w=400&h=200&fit=crop",
+                "category": "ai",
+                "publishedAt": today
             }
         ]
         
@@ -575,22 +613,25 @@ class NewsAgent:
                 "title": "Programmatic Advertising Reaches $200B Milestone in 2024",
                 "description": "Automated ad buying continues growth trajectory, driven by AI optimization and cross-platform integration.",
                 "url": "https://example.com/programmatic-200b",
-                "image": "https://picsum.photos/400/200?random=4",
-                "category": "marketing"
+                "image": "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=400&h=200&fit=crop",
+                "category": "marketing",
+                "publishedAt": today
             },
             {
                 "title": "Social Commerce Revenue Projected to Hit $1.2T by 2025",
                 "description": "Integration of shopping features in social platforms drives unprecedented e-commerce growth rates.",
                 "url": "https://example.com/social-commerce-1t",
-                "image": "https://picsum.photos/400/200?random=5",
-                "category": "marketing"
+                "image": "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=400&h=200&fit=crop",
+                "category": "marketing",
+                "publishedAt": yesterday
             },
             {
                 "title": "Cookie-less Future: New Identity Solutions Gain Traction",
                 "description": "Privacy-focused advertising technologies emerge as third-party cookies phase out across major browsers.",
                 "url": "https://example.com/cookieless-future",
-                "image": "https://picsum.photos/400/200?random=6",
-                "category": "marketing"
+                "image": "https://images.unsplash.com/photo-1563013544-824ae1b704d3?w=400&h=200&fit=crop",
+                "category": "marketing",
+                "publishedAt": today
             }
         ]
         
@@ -599,22 +640,25 @@ class NewsAgent:
                 "title": "AI-Powered Personalization Drives 40% Increase in Marketing ROI",
                 "description": "Machine learning algorithms revolutionize customer targeting, delivering unprecedented campaign performance metrics.",
                 "url": "https://example.com/ai-personalization-roi",
-                "image": "https://picsum.photos/400/200?random=7",
-                "category": "both"
+                "image": "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=400&h=200&fit=crop",
+                "category": "both",
+                "publishedAt": today
             },
             {
                 "title": "ChatGPT Integration Transforms Content Marketing Strategies",
                 "description": "Brands leverage conversational AI for automated content creation, customer service, and lead generation.",
                 "url": "https://example.com/chatgpt-content-marketing",
-                "image": "https://picsum.photos/400/200?random=8",
-                "category": "both"
+                "image": "https://images.unsplash.com/photo-1676299081847-824916de030a?w=400&h=200&fit=crop",
+                "category": "both",
+                "publishedAt": yesterday
             },
             {
                 "title": "Computer Vision Technology Revolutionizes Retail Analytics",
                 "description": "AI-powered visual recognition systems provide real-time insights into customer behavior and inventory optimization.",
                 "url": "https://example.com/computer-vision-retail",
-                "image": "https://picsum.photos/400/200?random=9",
-                "category": "both"
+                "image": "https://images.unsplash.com/photo-1516110833967-0b5716ca1387?w=400&h=200&fit=crop",
+                "category": "both",
+                "publishedAt": today
             }
         ]
         
