@@ -291,11 +291,12 @@ class NewsAgent:
         # NODO 4: Verificar categoría con LLM
         def check_category_node(state: AgentState) -> AgentState:
             """Verificar categoría usando LLM para análisis más preciso"""
-            logger.info("🔄 NODO 4: Verificando categoría con LLM...")
+            logger.info(f"🔄 NODO 4: Verificando categoría con LLM... Artículo: {state.get('current_article', {}).get('title', '')}")
             article = state.get("current_article", {})
             filter_type = state.get("filter_type", "both")
             
             if not article:
+                logger.info("❌ Artículo vacío, categoría none")
                 state["article_category"] = "none"
                 return state
             
@@ -303,7 +304,8 @@ class NewsAgent:
             description = str(article.get("description", "") or "")
             
             # Si no hay contenido suficiente, descartar
-            if len(title + description) < 10:  # Reducido de 20 a 10 caracteres
+            if len(title + description) < 10:
+                logger.info("❌ Artículo sin contenido suficiente, categoría none")
                 state["article_category"] = "none"
                 return state
             
@@ -346,14 +348,17 @@ Responde solo: ai, marketing, both, o none"""
                 elif filter_type == "both" and llm_category in ["ai", "marketing", "both"]:
                     state["article_category"] = llm_category
                 else:
-                    # NUEVO: Si no coincide exactamente, intentar fallback de palabras clave
-                    keyword_category = self._classify_by_keywords(title, description)
-                    if keyword_category != "none":
-                        state["article_category"] = keyword_category
-                        logger.info(f"🔄 Usando clasificación por palabras clave: {keyword_category}")
+                    # Relajar: si el filtro es "both", acepta cualquier categoría menos "none"
+                    if filter_type == "both" and llm_category != "none":
+                        state["article_category"] = llm_category
                     else:
-                        state["article_category"] = "none"
-                
+                        # Si no coincide exactamente, intentar fallback de palabras clave
+                        keyword_category = self._classify_by_keywords(title, description)
+                        if keyword_category != "none":
+                            state["article_category"] = keyword_category
+                            logger.info(f"🔄 Usando clasificación por palabras clave: {keyword_category}")
+                        else:
+                            state["article_category"] = "none"
                 logger.info(f"🤖 LLM clasificó: {llm_category} → Final: {state['article_category']}")
                 return state
                 
@@ -368,11 +373,12 @@ Responde solo: ai, marketing, both, o none"""
         # NODO 5: Verificar duplicados
         def check_duplicate_node(state: AgentState) -> AgentState:
             """Verificar si el artículo es duplicado"""
-            logger.info("🔄 NODO 5: Verificando duplicados...")
+            logger.info(f"🔄 NODO 5: Verificando duplicados... Artículo: {state.get('current_article', {}).get('title', '')}")
             article = state.get("current_article", {})
             processed_articles = state.get("processed_articles", [])
             
             if not article:
+                logger.info("❌ Artículo vacío, marcado como duplicado")
                 state["is_duplicate"] = True
                 return state
             
@@ -387,14 +393,14 @@ Responde solo: ai, marketing, both, o none"""
                 processed_clean_url = self._clean_url(processed.get("url", ""))
                 if clean_url and clean_url == processed_clean_url:
                     state["is_duplicate"] = True
-                    logger.info("🚫 Duplicado por URL")
+                    logger.info(f"🚫 Duplicado por URL: {clean_url}")
                     return state
             
             # Verificar título similar
             processed_titles = {p.get("title", "").lower().strip() for p in processed_articles}
             if self._is_similar_title(title, processed_titles):
                 state["is_duplicate"] = True
-                logger.info("🚫 Duplicado por título similar")
+                logger.info(f"🚫 Duplicado por título similar: {title}")
                 return state
             
             state["is_duplicate"] = False
@@ -404,7 +410,7 @@ Responde solo: ai, marketing, both, o none"""
         # NODO 6: Procesar artículo válido
         def process_valid_article_node(state: AgentState) -> AgentState:
             """Procesar un artículo que pasó todas las validaciones"""
-            logger.info("🔄 NODO 6: Procesando artículo válido...")
+            logger.info(f"🔄 NODO 6: Procesando artículo válido... {article.get('title', '')}")
             article = state.get("current_article", {})
             
             # Obtener fecha de publicación
@@ -469,10 +475,9 @@ Responde solo: ai, marketing, both, o none"""
         def finalize_results_node(state: AgentState) -> AgentState:
             """Finalizar y preparar resultados sin forzar mínimos"""
             final_news = state.get("final_news", [])
-            
+            logger.info(f"🔄 NODO 9: Noticias reales encontradas: {len(final_news)}")
             # Limitar a máximo 25 para performance
             final_news = final_news[:25]
-            
             # Solo agregar ejemplos si NO hay noticias reales
             if len(final_news) == 0:
                 logger.warning("⚠️ No se encontraron noticias reales, intentando fallback...")
@@ -482,13 +487,13 @@ Responde solo: ai, marketing, both, o none"""
                     state.get("filter_type", "both")
                 )
                 if len(fallback_news) > 0:
-                    final_news = fallback_news
+                    logger.info(f"🔄 Fallback por palabras clave: {len(fallback_news)} artículos")
+                    final_news = fallback_news[:15]
                 else:
                     # Solo como último recurso usar ejemplos
                     sample_news = self._get_sample_news_by_filter(state.get("filter_type", "both"))
-                    final_news.extend(sample_news[:3])  # Solo 3 ejemplos
+                    final_news = sample_news[:3]  # Solo 3 ejemplos
                     logger.info(f"🔄 Usando 3 ejemplos como último recurso")
-            
             state["final_news"] = final_news
             total_requests = self._get_daily_requests_count()
             logger.info(f"🏁 FINALIZADO: {len(final_news)} noticias - {total_requests}/100 requests hoy")
