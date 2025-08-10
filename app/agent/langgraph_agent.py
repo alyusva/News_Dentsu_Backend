@@ -287,17 +287,20 @@ class NewsAgent:
                 logger.info("🚫 Excluido: contiene palabras deportivas/entretenimiento")
                 return state
             
-            # Palabras clave específicas de IA (más restrictivas)
+            # Palabras clave específicas de IA (más restrictivas pero no tanto)
             ai_keywords = [
                 "artificial intelligence", "machine learning", "deep learning", "neural network",
                 "gpt", "llm", "language model", "chatgpt", "openai", "tensorflow", "pytorch",
                 "computer vision", "natural language processing", "nlp", "generative ai",
                 "ai model", "ai technology", "ai system", "ai platform", "ai solution",
                 "automation", "algorithm", "data science", "predictive analytics",
-                "cognitive computing", "ai development", "ai research", "ai startup"
+                "cognitive computing", "ai development", "ai research", "ai startup",
+                # Agregar más términos comunes pero específicos
+                "ai", "artificial", "intelligent", "smart technology", "machine intelligence",
+                "automated", "algorithmic", "tech innovation", "digital transformation"
             ]
             
-            # Palabras clave específicas de Marketing (más restrictivas)
+            # Palabras clave específicas de Marketing (más restrictivas pero no tanto)
             marketing_keywords = [
                 "digital marketing", "content marketing", "email marketing", "social media marketing",
                 "marketing campaign", "advertising campaign", "brand strategy", "marketing automation",
@@ -305,7 +308,10 @@ class NewsAgent:
                 "programmatic advertising", "influencer marketing", "affiliate marketing",
                 "marketing technology", "martech", "adtech", "marketing platform",
                 "customer journey", "marketing analytics", "brand awareness", "marketing strategy",
-                "performance marketing", "growth marketing", "marketing funnel"
+                "performance marketing", "growth marketing", "marketing funnel",
+                # Agregar más términos comunes
+                "marketing", "advertising", "brand", "campaign", "digital strategy", "business growth",
+                "customer engagement", "sales optimization", "media buying", "advertising technology"
             ]
             
             has_ai = any(keyword in content for keyword in ai_keywords)
@@ -415,22 +421,22 @@ class NewsAgent:
             raw_count = len(state.get("raw_news", []))
             current_index = state.get("current_article_index", 0)
             
-            # Condiciones optimizadas: mínimo 9, máximo 12 artículos
+            # Condiciones más flexibles para evitar bucles infinitos
             if final_count >= 12:  # Límite máximo: 12 artículos
                 state["should_continue"] = False
                 logger.info(f"🎯 NODO 8: Límite máximo alcanzado ({final_count} artículos)")
-            elif final_count >= 9:  # Objetivo mínimo: 9 artículos
+            elif final_count >= 6:  # Objetivo reducido: 6 artículos mínimo
                 state["should_continue"] = False
                 logger.info(f"🎯 NODO 8: Objetivo alcanzado con {final_count} artículos")
             elif current_index >= raw_count:
                 state["should_continue"] = False
                 logger.info(f"🎯 NODO 8: Procesados todos los artículos ({final_count} encontrados)")
-            elif current_index >= 50:  # Límite de seguridad para evitar procesar demasiados
+            elif current_index >= 30:  # Límite de seguridad más bajo para evitar bucles
                 state["should_continue"] = False
                 logger.info(f"🎯 NODO 8: Límite de seguridad alcanzado ({final_count} artículos)")
             else:
                 state["should_continue"] = True
-                logger.info(f"🔄 NODO 8: Continuando... ({final_count}/9 artículos mínimo)")
+                logger.info(f"🔄 NODO 8: Continuando... ({final_count}/6 artículos mínimo)")
             
             return state
         
@@ -442,11 +448,12 @@ class NewsAgent:
             # Limitar a máximo 12
             final_news = final_news[:12]
             
-            # Si tenemos menos de 3, agregar ejemplos
+            # Si tenemos menos de 3, agregar ejemplos (más permisivo)
             if len(final_news) < 3:
                 sample_news = self._get_sample_news_by_filter(state.get("filter_type", "both"))
                 needed = max(6 - len(final_news), 0)  # Completar hasta 6
                 final_news.extend(sample_news[:needed])
+                logger.info(f"🔄 Agregadas {needed} noticias de ejemplo para completar")
             
             state["final_news"] = final_news
             total_requests = self._get_daily_requests_count()
