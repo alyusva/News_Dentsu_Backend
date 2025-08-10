@@ -43,26 +43,30 @@ async def get_news(filter_type: str = "both") -> Dict:
         # Ambos agentes ahora usan solo filter_type
         news_data = await agent.get_filtered_news(filter_type.lower())
         
-        # Filtrar por categoría específica
+        # Filtrar por categoría específica (CORREGIDO: lógica más permisiva)
         if filter_type.lower() == "both":
-            # Solo noticias que tengan AMBOS temas (IA + Marketing)
+            # Para "both": aceptar artículos de AI, Marketing o Both
             filtered_news = []
             for article in news_data:
                 article_category = article.get("category", "")
-                if article_category == "both":
+                if article_category in ["ai", "marketing", "both"]:
                     filtered_news.append(article)
             news_data = filtered_news
-        elif filter_type.lower() != "both":
-            # Para AI o Marketing individual
+        elif filter_type.lower() == "ai":
+            # Para AI: aceptar artículos de AI o Both
             filtered_news = []
             for article in news_data:
                 article_category = article.get("category", "")
-                
-                if filter_type.lower() == "ai" and article_category == "ai":
+                if article_category in ["ai", "both"]:
                     filtered_news.append(article)
-                elif filter_type.lower() == "marketing" and article_category == "marketing":
+            news_data = filtered_news
+        elif filter_type.lower() == "marketing":
+            # Para Marketing: aceptar artículos de Marketing o Both
+            filtered_news = []
+            for article in news_data:
+                article_category = article.get("category", "")
+                if article_category in ["marketing", "both"]:
                     filtered_news.append(article)
-            
             news_data = filtered_news
         
         logger.info(f"Obtenidas {len(news_data)} noticias después del filtrado")

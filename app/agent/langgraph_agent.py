@@ -421,16 +421,19 @@ CATEGORÍA:"""
             raw_count = len(state.get("raw_news", []))
             current_index = state.get("current_article_index", 0)
             
-            # Procesamiento completo más flexible - analizar todos los artículos posibles
-            if final_count >= 20:  # Límite máximo: 20 artículos
+            # Procesamiento más conservador para evitar bucles infinitos
+            if final_count >= 15:  # Límite máximo: 15 artículos
                 state["should_continue"] = False
                 logger.info(f"🎯 NODO 8: Límite máximo alcanzado ({final_count} artículos)")
             elif current_index >= raw_count:
                 state["should_continue"] = False
                 logger.info(f"🎯 NODO 8: Procesados todos los artículos ({final_count} encontrados)")
-            elif current_index >= 80:  # Procesar hasta 80 artículos máximo para evitar timeouts
+            elif current_index >= 50:  # Límite más conservador: 50 artículos máximo
                 state["should_continue"] = False
                 logger.info(f"🎯 NODO 8: Límite de procesamiento alcanzado ({final_count} artículos)")
+            elif final_count >= 5 and current_index >= 30:  # Si ya tenemos 5, parar en 30 procesados
+                state["should_continue"] = False
+                logger.info(f"🎯 NODO 8: Suficientes artículos encontrados ({final_count} artículos)")
             else:
                 state["should_continue"] = True
                 logger.info(f"🔄 NODO 8: Continuando... ({final_count} artículos encontrados)")
