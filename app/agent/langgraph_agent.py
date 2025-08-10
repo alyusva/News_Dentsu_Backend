@@ -131,8 +131,8 @@ class NewsAgent:
         except:
             return url
     
-    def _is_similar_title(self, title: str, seen_titles: set, threshold: float = 0.85) -> bool:
-        """Verificar si el título es similar a alguno ya visto (Jaccard similarity)"""
+    def _is_similar_title(self, title: str, seen_titles: set, threshold: float = 0.60) -> bool:
+        """Verificar si el título es similar a alguno ya visto (Jaccard similarity) - MUY ESTRICTO"""
         title_words = set(re.findall(r'\w+', title.lower()))
         
         for seen_title in seen_titles:
@@ -144,39 +144,44 @@ class NewsAgent:
                 
                 if union > 0:
                     similarity = intersection / union
+                    # Umbral más bajo = MÁS estricto en detectar duplicados
                     if similarity >= threshold:
                         return True
         return False
     
     def _classify_by_keywords(self, title: str, description: str) -> str:
-        """Clasificación de fallback usando palabras clave"""
+        """Clasificación de fallback usando palabras clave MÁS RESTRICTIVA"""
         # Asegurar que title y description son strings
         title = str(title or "")
         description = str(description or "")
         content = (title + " " + description).lower()
         
-        # Palabras clave para AI
+        # Palabras clave para AI - MÁS ESPECÍFICAS
         ai_keywords = [
-            'ai', 'artificial intelligence', 'machine learning', 'deep learning', 'neural network',
-            'chatgpt', 'gpt', 'openai', 'llm', 'automation', 'algorithm', 'data science',
-            'computer vision', 'nlp', 'natural language', 'robot', 'autonomous'
+            'artificial intelligence', 'machine learning', 'deep learning', 'neural network',
+            'chatgpt', 'gpt-', 'openai', 'llm', 'ai model', 'ai technology', 'ai system',
+            'computer vision', 'natural language processing', 'nlp', 'automation technology',
+            'ai development', 'ai research', 'generative ai', 'ai algorithm', 'ai software'
         ]
         
-        # Palabras clave para Marketing
+        # Palabras clave para Marketing - MÁS ESPECÍFICAS  
         marketing_keywords = [
-            'marketing', 'advertising', 'campaign', 'brand', 'social media', 'seo',
-            'digital marketing', 'content marketing', 'email marketing', 'lead generation',
-            'customer engagement', 'analytics', 'conversion', 'roi', 'ctr'
+            'digital marketing', 'content marketing', 'email marketing', 'social media marketing',
+            'advertising campaign', 'brand strategy', 'marketing strategy', 'lead generation',
+            'customer engagement', 'marketing analytics', 'conversion rate', 'marketing roi',
+            'seo strategy', 'ppc advertising', 'marketing automation', 'influencer marketing'
         ]
         
+        # BUSCAR COINCIDENCIAS EXACTAS, no fragmentos
         ai_count = sum(1 for keyword in ai_keywords if keyword in content)
         marketing_count = sum(1 for keyword in marketing_keywords if keyword in content)
         
-        if ai_count > 0 and marketing_count > 0:
+        # SER MÁS RESTRICTIVO: requerir al menos 1 coincidencia clara
+        if ai_count >= 1 and marketing_count >= 1:
             return "both"
-        elif ai_count > 0:
+        elif ai_count >= 1:
             return "ai"
-        elif marketing_count > 0:
+        elif marketing_count >= 1:
             return "marketing"
         else:
             return "none"
@@ -343,7 +348,7 @@ Responde solo: ai, marketing, both, o none"""
                     # Fallback: clasificación por palabras clave si LLM falla
                     llm_category = self._classify_by_keywords(title, description)
                 
-                # Lógica más permisiva: aceptar más categorías
+                # LÓGICA MÁS ESTRICTA: confiar en el LLM
                 if filter_type == "ai" and llm_category in ["ai", "both"]:
                     state["article_category"] = llm_category
                 elif filter_type == "marketing" and llm_category in ["marketing", "both"]:
@@ -351,17 +356,9 @@ Responde solo: ai, marketing, both, o none"""
                 elif filter_type == "both" and llm_category in ["ai", "marketing", "both"]:
                     state["article_category"] = llm_category
                 else:
-                    # Relajar: si el filtro es "both", acepta cualquier categoría menos "none"
-                    if filter_type == "both" and llm_category != "none":
-                        state["article_category"] = llm_category
-                    else:
-                        # Si no coincide exactamente, intentar fallback de palabras clave
-                        keyword_category = self._classify_by_keywords(title, description)
-                        if keyword_category != "none":
-                            state["article_category"] = keyword_category
-                            logger.info(f"🔄 Usando clasificación por palabras clave: {keyword_category}")
-                        else:
-                            state["article_category"] = "none"
+                    # SI EL LLM DICE "NONE", CONFIAR EN ÉL - NO usar fallback
+                    state["article_category"] = "none"
+                    
                 logger.info(f"🤖 LLM clasificó: {llm_category} → Final: {state['article_category']}")
                 return state
                 
@@ -582,13 +579,13 @@ Responde solo: ai, marketing, both, o none"""
         Método principal para obtener noticias filtradas usando el grafo granular
         """
         try:
-            # Query más amplia y laxa, el LLM se encargará del filtrado
+            # Queries MÁS ESPECÍFICAS para cada categoría
             if filter_type == "ai":
-                query = "technology OR artificial intelligence OR machine learning OR AI OR automation OR digital transformation OR innovation OR software"
+                query = "\"artificial intelligence\" OR \"machine learning\" OR \"AI technology\" OR \"OpenAI\" OR \"ChatGPT\" OR \"deep learning\" OR \"neural network\" OR \"AI model\""
             elif filter_type == "marketing":
-                query = "marketing OR advertising OR business OR digital strategy OR campaign OR brand OR social media OR e-commerce OR sales"
-            else:  # both - Query muy amplia
-                query = "technology OR business OR digital OR innovation OR strategy OR marketing OR artificial intelligence OR automation OR software OR advertising"
+                query = "\"digital marketing\" OR \"advertising campaign\" OR \"marketing strategy\" OR \"social media marketing\" OR \"brand management\" OR \"content marketing\" OR \"marketing analytics\""
+            else:  # both - Combinación de ambas
+                query = "\"artificial intelligence\" OR \"machine learning\" OR \"digital marketing\" OR \"marketing strategy\" OR \"AI technology\" OR \"advertising campaign\" OR \"ChatGPT\" OR \"marketing analytics\""
             
             # Estado inicial
             initial_state = {
