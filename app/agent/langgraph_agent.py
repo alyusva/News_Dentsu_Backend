@@ -42,11 +42,11 @@ class NewsAgent:
     """Agente granular para obtener y filtrar noticias usando LangGraph + OpenAI"""
     
     def __init__(self):
-        self.news_api_key = os.getenv("NEWS_API_KEY")
+        self.news_api_key = os.getenv("NEWSAPI_KEY")
         self.openai_api_key = os.getenv("OPENAI_API_KEY")
         
         if not self.news_api_key:
-            raise ValueError("NEWS_API_KEY no encontrada en las variables de entorno")
+            raise ValueError("NEWSAPI_KEY no encontrada en las variables de entorno")
         if not self.openai_api_key:
             raise ValueError("OPENAI_API_KEY no encontrada en las variables de entorno")
         
@@ -150,6 +150,9 @@ class NewsAgent:
     
     def _classify_by_keywords(self, title: str, description: str) -> str:
         """Clasificación de fallback usando palabras clave"""
+        # Asegurar que title y description son strings
+        title = str(title or "")
+        description = str(description or "")
         content = (title + " " + description).lower()
         
         # Palabras clave para AI
@@ -410,8 +413,8 @@ Responde solo: ai, marketing, both, o none"""
         # NODO 6: Procesar artículo válido
         def process_valid_article_node(state: AgentState) -> AgentState:
             """Procesar un artículo que pasó todas las validaciones"""
-            logger.info(f"🔄 NODO 6: Procesando artículo válido... {article.get('title', '')}")
             article = state.get("current_article", {})
+            logger.info(f"🔄 NODO 6: Procesando artículo válido... {article.get('title', '')}")
             
             # Obtener fecha de publicación
             published_at = article.get("publishedAt", "")
@@ -647,8 +650,8 @@ Responde solo: ai, marketing, both, o none"""
                 
                 processed_articles = []
                 for article in articles[:50]:  # Procesar máximo 50
-                    title = article.get("title", "")
-                    description = article.get("description", "")
+                    title = str(article.get("title") or "")
+                    description = str(article.get("description") or "")
                     
                     if not title or len(title + description) < 10:
                         continue

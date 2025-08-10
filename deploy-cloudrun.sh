@@ -21,9 +21,9 @@ IMAGE_NAME="gcr.io/$PROJECT_ID/$SERVICE_NAME"
 echo -e "${BLUE}🚀 Deploying Dentsu News Platform Backend to Cloud Run...${NC}"
 
 # Verificar variables de entorno
-if [ -z "$NEWS_API_KEY" ]; then
-    echo -e "${RED}❌ Error: NEWS_API_KEY not set${NC}"
-    echo "Run: export NEWS_API_KEY='your-api-key'"
+if [ -z "$NEWSAPI_KEY" ]; then
+    echo -e "${RED}❌ Error: NEWSAPI_KEY not set${NC}"
+    echo "Run: export NEWSAPI_KEY='your-api-key'"
     exit 1
 fi
 
@@ -49,7 +49,7 @@ gcloud run deploy $SERVICE_NAME \
     --platform managed \
     --region $REGION \
     --allow-unauthenticated \
-    --set-env-vars="NEWS_API_KEY=$NEWS_API_KEY,OPENAI_API_KEY=$OPENAI_API_KEY,DEBUG=False" \
+    --set-env-vars="NEWSAPI_KEY=$NEWSAPI_KEY,OPENAI_API_KEY=$OPENAI_API_KEY,DEBUG=False" \
     --memory=1Gi \
     --cpu=1 \
     --max-instances=10 \

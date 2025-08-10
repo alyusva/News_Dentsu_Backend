@@ -23,8 +23,8 @@ class Settings:
         "*"  # En producción, especificar dominios exactos
     ]
     
-    # External APIs
-    NEWS_API_KEY: str = os.getenv("NEWS_API_KEY", "")
+    # API Keys
+    NEWSAPI_KEY: str = os.getenv("NEWSAPI_KEY", "")
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
     
     # Server
