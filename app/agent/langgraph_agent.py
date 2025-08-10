@@ -258,10 +258,10 @@ class NewsAgent:
             
             return state
         
-        # NODO 4: Verificar categoría
+        # NODO 4: Verificar categoría con LLM
         def check_category_node(state: AgentState) -> AgentState:
-            """Verificar si el artículo pertenece a la categoría solicitada"""
-            logger.info("🔄 NODO 4: Verificando categoría...")
+            """Verificar categoría usando LLM para análisis más preciso"""
+            logger.info("🔄 NODO 4: Verificando categoría con LLM...")
             article = state.get("current_article", {})
             filter_type = state.get("filter_type", "both")
             
@@ -269,73 +269,73 @@ class NewsAgent:
                 state["article_category"] = "none"
                 return state
             
-            title = str(article.get("title", "") or "").lower()
-            description = str(article.get("description", "") or "").lower()
-            content = f"{title} {description}"
+            title = str(article.get("title", "") or "")
+            description = str(article.get("description", "") or "")
             
-            # Palabras excluidas (noticias deportivas, entretenimiento, etc.)
-            excluded_keywords = [
-                "football", "soccer", "basketball", "tennis", "baseball", "golf", "sports",
-                "athletic", "player", "team", "match", "game", "score", "league", "tournament",
-                "championship", "fifa", "uefa", "nba", "nfl", "mlb", "olympics", "sport",
-                "racing", "boxing", "wrestling", "swimming", "cycling", "running", "fitness"
-            ]
-            
-            # Verificar exclusiones primero
-            if any(keyword in content for keyword in excluded_keywords):
+            # Si no hay contenido suficiente, descartar
+            if len(title + description) < 20:
                 state["article_category"] = "none"
-                logger.info("🚫 Excluido: contiene palabras deportivas/entretenimiento")
                 return state
             
-            # Palabras clave específicas de IA (más restrictivas pero no tanto)
-            ai_keywords = [
-                "artificial intelligence", "machine learning", "deep learning", "neural network",
-                "gpt", "llm", "language model", "chatgpt", "openai", "tensorflow", "pytorch",
-                "computer vision", "natural language processing", "nlp", "generative ai",
-                "ai model", "ai technology", "ai system", "ai platform", "ai solution",
-                "automation", "algorithm", "data science", "predictive analytics",
-                "cognitive computing", "ai development", "ai research", "ai startup",
-                # Agregar más términos comunes pero específicos
-                "ai", "artificial", "intelligent", "smart technology", "machine intelligence",
-                "automated", "algorithmic", "tech innovation", "digital transformation"
-            ]
-            
-            # Palabras clave específicas de Marketing (más restrictivas pero no tanto)
-            marketing_keywords = [
-                "digital marketing", "content marketing", "email marketing", "social media marketing",
-                "marketing campaign", "advertising campaign", "brand strategy", "marketing automation",
-                "conversion rate", "customer acquisition", "lead generation", "marketing roi",
-                "programmatic advertising", "influencer marketing", "affiliate marketing",
-                "marketing technology", "martech", "adtech", "marketing platform",
-                "customer journey", "marketing analytics", "brand awareness", "marketing strategy",
-                "performance marketing", "growth marketing", "marketing funnel",
-                # Agregar más términos comunes
-                "marketing", "advertising", "brand", "campaign", "digital strategy", "business growth",
-                "customer engagement", "sales optimization", "media buying", "advertising technology"
-            ]
-            
-            has_ai = any(keyword in content for keyword in ai_keywords)
-            has_marketing = any(keyword in content for keyword in marketing_keywords)
-            
-            # Lógica más estricta
-            if filter_type == "ai" and has_ai:
-                state["article_category"] = "ai"
-            elif filter_type == "marketing" and has_marketing:
-                state["article_category"] = "marketing"
-            elif filter_type == "both":
-                if has_ai and has_marketing:
-                    state["article_category"] = "both"
-                elif has_ai:
-                    state["article_category"] = "ai"
-                elif has_marketing:
-                    state["article_category"] = "marketing"
+            try:
+                # Prompt para clasificación
+                classification_prompt = f"""
+Analiza el siguiente artículo de noticias y clasifícalo en una de estas categorías exactas:
+
+CATEGORÍAS DISPONIBLES:
+- "ai": Inteligencia artificial, machine learning, deep learning, GPT, ChatGPT, neural networks, computer vision, NLP, automation, algoritmos, data science, etc.
+- "marketing": Marketing digital, publicidad, campaigns, branding, social media marketing, SEO, advertising technology, customer engagement, lead generation, etc.
+- "both": Artículos que combinan IA Y marketing (ej: AI para marketing, marketing automation con IA, personalization con ML, etc.)
+- "none": Cualquier otro tema no relacionado con IA o marketing
+
+ARTÍCULO A ANALIZAR:
+TÍTULO: {title}
+DESCRIPCIÓN: {description}
+
+INSTRUCCIONES:
+- Lee cuidadosamente el título y descripción
+- Clasifica según el contenido principal del artículo
+- Si menciona tanto IA como marketing, usa "both"
+- Si es solo sobre IA/tecnología, usa "ai"
+- Si es solo sobre marketing/publicidad, usa "marketing"
+- Si no es sobre ninguno de los dos temas, usa "none"
+- Responde SOLO con una palabra: ai, marketing, both, o none
+
+CATEGORÍA:"""
+
+                # Llamar al LLM
+                messages = [
+                    SystemMessage(content="Eres un clasificador de noticias experto. Analiza el contenido y responde solo con una palabra."),
+                    HumanMessage(content=classification_prompt)
+                ]
+                
+                response = self.llm.invoke(messages)
+                llm_category = response.content.strip().lower()
+                
+                # Validar respuesta del LLM
+                valid_categories = ["ai", "marketing", "both", "none"]
+                if llm_category not in valid_categories:
+                    logger.warning(f"LLM respuesta inválida: {llm_category}, usando 'none'")
+                    llm_category = "none"
+                
+                # Verificar si coincide con el filtro solicitado
+                if filter_type == "ai" and llm_category in ["ai", "both"]:
+                    state["article_category"] = llm_category
+                elif filter_type == "marketing" and llm_category in ["marketing", "both"]:
+                    state["article_category"] = llm_category
+                elif filter_type == "both" and llm_category in ["ai", "marketing", "both"]:
+                    state["article_category"] = llm_category
                 else:
                     state["article_category"] = "none"
-            else:
+                
+                logger.info(f"🤖 LLM clasificó: {llm_category} → Final: {state['article_category']}")
+                return state
+                
+            except Exception as e:
+                logger.error(f"❌ Error en clasificación LLM: {str(e)}")
+                # Fallback más simple
                 state["article_category"] = "none"
-            
-            logger.info(f"🏷️ Categoría: {state['article_category']}")
-            return state
+                return state
         
         # NODO 5: Verificar duplicados
         def check_duplicate_node(state: AgentState) -> AgentState:
@@ -414,50 +414,46 @@ class NewsAgent:
             state["current_article_index"] = state.get("current_article_index", 0) + 1
             return state
         
-                # NODO 8: Verificar si necesitamos más
+                # NODO 8: Verificar si necesitamos más (procesamiento completo)
         def check_completion_node(state: AgentState) -> AgentState:
-            """Verificar si hemos completado el objetivo"""
+            """Verificar si hemos completado el procesamiento"""
             final_count = len(state.get("final_news", []))
             raw_count = len(state.get("raw_news", []))
             current_index = state.get("current_article_index", 0)
             
-            # Condiciones más flexibles para evitar bucles infinitos
-            if final_count >= 12:  # Límite máximo: 12 artículos
+            # Procesamiento completo más flexible - analizar todos los artículos posibles
+            if final_count >= 20:  # Límite máximo: 20 artículos
                 state["should_continue"] = False
                 logger.info(f"🎯 NODO 8: Límite máximo alcanzado ({final_count} artículos)")
-            elif final_count >= 6:  # Objetivo reducido: 6 artículos mínimo
-                state["should_continue"] = False
-                logger.info(f"🎯 NODO 8: Objetivo alcanzado con {final_count} artículos")
             elif current_index >= raw_count:
                 state["should_continue"] = False
                 logger.info(f"🎯 NODO 8: Procesados todos los artículos ({final_count} encontrados)")
-            elif current_index >= 30:  # Límite de seguridad más bajo para evitar bucles
+            elif current_index >= 80:  # Procesar hasta 80 artículos máximo para evitar timeouts
                 state["should_continue"] = False
-                logger.info(f"🎯 NODO 8: Límite de seguridad alcanzado ({final_count} artículos)")
+                logger.info(f"🎯 NODO 8: Límite de procesamiento alcanzado ({final_count} artículos)")
             else:
                 state["should_continue"] = True
-                logger.info(f"🔄 NODO 8: Continuando... ({final_count}/6 artículos mínimo)")
+                logger.info(f"🔄 NODO 8: Continuando... ({final_count} artículos encontrados)")
             
             return state
         
-        # NODO 9: Finalizar
+        # NODO 9: Finalizar (sin mínimos obligatorios)
         def finalize_results_node(state: AgentState) -> AgentState:
-            """Finalizar y preparar resultados"""
+            """Finalizar y preparar resultados sin forzar mínimos"""
             final_news = state.get("final_news", [])
             
-            # Limitar a máximo 12
-            final_news = final_news[:12]
+            # Limitar a máximo 20 para performance
+            final_news = final_news[:20]
             
-            # Si tenemos menos de 3, agregar ejemplos (más permisivo)
-            if len(final_news) < 3:
+            # Solo agregar ejemplos si no hay noticias reales
+            if len(final_news) == 0:
                 sample_news = self._get_sample_news_by_filter(state.get("filter_type", "both"))
-                needed = max(6 - len(final_news), 0)  # Completar hasta 6
-                final_news.extend(sample_news[:needed])
-                logger.info(f"🔄 Agregadas {needed} noticias de ejemplo para completar")
+                final_news.extend(sample_news[:6])
+                logger.info(f"🔄 No se encontraron noticias reales, usando 6 ejemplos")
             
             state["final_news"] = final_news
             total_requests = self._get_daily_requests_count()
-            logger.info(f"🏁 FINALIZADO: {len(final_news)} noticias (reales + ejemplos) - {total_requests}/100 requests hoy")
+            logger.info(f"🏁 FINALIZADO: {len(final_news)} noticias - {total_requests}/100 requests hoy")
             return state
         
         # Crear el grafo
@@ -540,13 +536,13 @@ class NewsAgent:
         Método principal para obtener noticias filtradas usando el grafo granular
         """
         try:
-            # Configurar consulta según el filtro
+            # Query más amplia y laxa, el LLM se encargará del filtrado
             if filter_type == "ai":
-                query = "artificial intelligence OR machine learning OR AI OR deep learning OR neural network OR GPT OR ChatGPT"
+                query = "technology OR artificial intelligence OR machine learning OR AI OR automation OR digital transformation OR innovation OR software"
             elif filter_type == "marketing":
-                query = "digital marketing OR advertising OR social media marketing OR content marketing OR SEO OR campaign"
-            else:  # both - Query más amplia para encontrar intersección
-                query = "(artificial intelligence OR AI OR machine learning) AND (marketing OR advertising OR business OR campaign OR digital)"
+                query = "marketing OR advertising OR business OR digital strategy OR campaign OR brand OR social media OR e-commerce OR sales"
+            else:  # both - Query muy amplia
+                query = "technology OR business OR digital OR innovation OR strategy OR marketing OR artificial intelligence OR automation OR software OR advertising"
             
             # Estado inicial
             initial_state = {
