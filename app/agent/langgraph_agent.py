@@ -148,6 +148,36 @@ class NewsAgent:
                         return True
         return False
     
+    def _classify_by_keywords(self, title: str, description: str) -> str:
+        """Clasificación de fallback usando palabras clave"""
+        content = (title + " " + description).lower()
+        
+        # Palabras clave para AI
+        ai_keywords = [
+            'ai', 'artificial intelligence', 'machine learning', 'deep learning', 'neural network',
+            'chatgpt', 'gpt', 'openai', 'llm', 'automation', 'algorithm', 'data science',
+            'computer vision', 'nlp', 'natural language', 'robot', 'autonomous'
+        ]
+        
+        # Palabras clave para Marketing
+        marketing_keywords = [
+            'marketing', 'advertising', 'campaign', 'brand', 'social media', 'seo',
+            'digital marketing', 'content marketing', 'email marketing', 'lead generation',
+            'customer engagement', 'analytics', 'conversion', 'roi', 'ctr'
+        ]
+        
+        ai_count = sum(1 for keyword in ai_keywords if keyword in content)
+        marketing_count = sum(1 for keyword in marketing_keywords if keyword in content)
+        
+        if ai_count > 0 and marketing_count > 0:
+            return "both"
+        elif ai_count > 0:
+            return "ai"
+        elif marketing_count > 0:
+            return "marketing"
+        else:
+            return "none"
+    
     def _create_langgraph(self) -> StateGraph:
         """Crear el grafo de procesamiento GRANULAR con LangGraph"""
         
@@ -273,35 +303,24 @@ class NewsAgent:
             description = str(article.get("description", "") or "")
             
             # Si no hay contenido suficiente, descartar
-            if len(title + description) < 20:
+            if len(title + description) < 10:  # Reducido de 20 a 10 caracteres
                 state["article_category"] = "none"
                 return state
             
             try:
-                # Prompt para clasificación
-                classification_prompt = f"""
-Analiza el siguiente artículo de noticias y clasifícalo en una de estas categorías exactas:
+                # Prompt más simple y directo para el LLM
+                classification_prompt = f"""Clasifica este artículo en una categoría:
 
-CATEGORÍAS DISPONIBLES:
-- "ai": Inteligencia artificial, machine learning, deep learning, GPT, ChatGPT, neural networks, computer vision, NLP, automation, algoritmos, data science, etc.
-- "marketing": Marketing digital, publicidad, campaigns, branding, social media marketing, SEO, advertising technology, customer engagement, lead generation, etc.
-- "both": Artículos que combinan IA Y marketing (ej: AI para marketing, marketing automation con IA, personalization con ML, etc.)
-- "none": Cualquier otro tema no relacionado con IA o marketing
-
-ARTÍCULO A ANALIZAR:
 TÍTULO: {title}
 DESCRIPCIÓN: {description}
 
-INSTRUCCIONES:
-- Lee cuidadosamente el título y descripción
-- Clasifica según el contenido principal del artículo
-- Si menciona tanto IA como marketing, usa "both"
-- Si es solo sobre IA/tecnología, usa "ai"
-- Si es solo sobre marketing/publicidad, usa "marketing"
-- Si no es sobre ninguno de los dos temas, usa "none"
-- Responde SOLO con una palabra: ai, marketing, both, o none
+CATEGORÍAS:
+- "ai": sobre inteligencia artificial, tecnología AI, machine learning, automatización
+- "marketing": sobre marketing, publicidad, ventas, branding, social media
+- "both": combina IA y marketing
+- "none": otros temas
 
-CATEGORÍA:"""
+Responde solo: ai, marketing, both, o none"""
 
                 # Llamar al LLM
                 messages = [
@@ -315,10 +334,11 @@ CATEGORÍA:"""
                 # Validar respuesta del LLM
                 valid_categories = ["ai", "marketing", "both", "none"]
                 if llm_category not in valid_categories:
-                    logger.warning(f"LLM respuesta inválida: {llm_category}, usando 'none'")
-                    llm_category = "none"
+                    logger.warning(f"LLM respuesta inválida: {llm_category}, usando fallback de palabras clave")
+                    # Fallback: clasificación por palabras clave si LLM falla
+                    llm_category = self._classify_by_keywords(title, description)
                 
-                # Verificar si coincide con el filtro solicitado
+                # Lógica más permisiva: aceptar más categorías
                 if filter_type == "ai" and llm_category in ["ai", "both"]:
                     state["article_category"] = llm_category
                 elif filter_type == "marketing" and llm_category in ["marketing", "both"]:
@@ -326,15 +346,23 @@ CATEGORÍA:"""
                 elif filter_type == "both" and llm_category in ["ai", "marketing", "both"]:
                     state["article_category"] = llm_category
                 else:
-                    state["article_category"] = "none"
+                    # NUEVO: Si no coincide exactamente, intentar fallback de palabras clave
+                    keyword_category = self._classify_by_keywords(title, description)
+                    if keyword_category != "none":
+                        state["article_category"] = keyword_category
+                        logger.info(f"🔄 Usando clasificación por palabras clave: {keyword_category}")
+                    else:
+                        state["article_category"] = "none"
                 
                 logger.info(f"🤖 LLM clasificó: {llm_category} → Final: {state['article_category']}")
                 return state
                 
             except Exception as e:
                 logger.error(f"❌ Error en clasificación LLM: {str(e)}")
-                # Fallback más simple
-                state["article_category"] = "none"
+                # Fallback robusto: usar clasificación por palabras clave
+                fallback_category = self._classify_by_keywords(title, description)
+                state["article_category"] = fallback_category
+                logger.info(f"🔄 Usando fallback de palabras clave: {fallback_category}")
                 return state
         
         # NODO 5: Verificar duplicados
@@ -421,19 +449,16 @@ CATEGORÍA:"""
             raw_count = len(state.get("raw_news", []))
             current_index = state.get("current_article_index", 0)
             
-            # Procesamiento más conservador para evitar bucles infinitos
-            if final_count >= 15:  # Límite máximo: 15 artículos
+            # Procesamiento más agresivo para obtener más resultados
+            if final_count >= 25:  # Límite máximo aumentado: 25 artículos
                 state["should_continue"] = False
                 logger.info(f"🎯 NODO 8: Límite máximo alcanzado ({final_count} artículos)")
             elif current_index >= raw_count:
                 state["should_continue"] = False
                 logger.info(f"🎯 NODO 8: Procesados todos los artículos ({final_count} encontrados)")
-            elif current_index >= 50:  # Límite más conservador: 50 artículos máximo
+            elif current_index >= 80:  # Procesar más artículos: 80 máximo
                 state["should_continue"] = False
                 logger.info(f"🎯 NODO 8: Límite de procesamiento alcanzado ({final_count} artículos)")
-            elif final_count >= 5 and current_index >= 30:  # Si ya tenemos 5, parar en 30 procesados
-                state["should_continue"] = False
-                logger.info(f"🎯 NODO 8: Suficientes artículos encontrados ({final_count} artículos)")
             else:
                 state["should_continue"] = True
                 logger.info(f"🔄 NODO 8: Continuando... ({final_count} artículos encontrados)")
@@ -445,14 +470,24 @@ CATEGORÍA:"""
             """Finalizar y preparar resultados sin forzar mínimos"""
             final_news = state.get("final_news", [])
             
-            # Limitar a máximo 20 para performance
-            final_news = final_news[:20]
+            # Limitar a máximo 25 para performance
+            final_news = final_news[:25]
             
-            # Solo agregar ejemplos si no hay noticias reales
+            # Solo agregar ejemplos si NO hay noticias reales
             if len(final_news) == 0:
-                sample_news = self._get_sample_news_by_filter(state.get("filter_type", "both"))
-                final_news.extend(sample_news[:6])
-                logger.info(f"🔄 No se encontraron noticias reales, usando 6 ejemplos")
+                logger.warning("⚠️ No se encontraron noticias reales, intentando fallback...")
+                # Intentar fallback antes de usar ejemplos
+                fallback_news = self._fallback_keyword_classification(
+                    state.get("query", "technology business"), 
+                    state.get("filter_type", "both")
+                )
+                if len(fallback_news) > 0:
+                    final_news = fallback_news
+                else:
+                    # Solo como último recurso usar ejemplos
+                    sample_news = self._get_sample_news_by_filter(state.get("filter_type", "both"))
+                    final_news.extend(sample_news[:3])  # Solo 3 ejemplos
+                    logger.info(f"🔄 Usando 3 ejemplos como último recurso")
             
             state["final_news"] = final_news
             total_requests = self._get_daily_requests_count()
@@ -566,7 +601,7 @@ CATEGORÍA:"""
             
             # VALIDACIÓN ROBUSTA: Envolver toda la ejecución en try-catch
             try:
-                result = self.graph.invoke(initial_state, config={"recursion_limit": 200})
+                result = self.graph.invoke(initial_state, config={"recursion_limit": 300})  # Aumentado de 200 a 300
                 
                 final_news = result.get("final_news", [])
                 logger.info(f"🎯 LangGraph Agent completado: {len(final_news)} noticias")
@@ -574,11 +609,90 @@ CATEGORÍA:"""
                 return final_news
             except Exception as e:
                 logger.error(f"❌ Error crítico en LangGraph: {str(e)}")
-                return self._get_sample_news_by_filter(filter_type)
+                # Último recurso: usar clasificación por palabras clave de toda la lista
+                return self._fallback_keyword_classification(initial_state["query"], filter_type)
             
         except Exception as e:
             logger.error(f"Error en el agente de noticias: {str(e)}")
-            return self._get_sample_news_by_filter(filter_type)
+            return self._fallback_keyword_classification(
+                f"technology OR business OR digital OR innovation OR strategy OR marketing OR artificial intelligence", 
+                filter_type
+            )
+    
+    def _fallback_keyword_classification(self, query: str, filter_type: str) -> List[Dict[str, Any]]:
+        """Método de fallback que usa solo clasificación por palabras clave"""
+        try:
+            logger.info("🔄 Ejecutando fallback con clasificación por palabras clave...")
+            
+            # Hacer request directa a NewsAPI
+            url = "https://newsapi.org/v2/everything"
+            params = {
+                "q": query,
+                "language": "en", 
+                "sortBy": "publishedAt",
+                "pageSize": 50,
+                "apiKey": self.news_api_key
+            }
+            
+            response = requests.get(url, params=params, timeout=15)
+            
+            if response.status_code == 200:
+                data = response.json()
+                articles = data.get("articles", [])
+                
+                processed_articles = []
+                for article in articles[:50]:  # Procesar máximo 50
+                    title = article.get("title", "")
+                    description = article.get("description", "")
+                    
+                    if not title or len(title + description) < 10:
+                        continue
+                    
+                    # Clasificar por palabras clave
+                    category = self._classify_by_keywords(title, description)
+                    
+                    # Aplicar filtro
+                    should_include = False
+                    if filter_type == "ai" and category in ["ai", "both"]:
+                        should_include = True
+                    elif filter_type == "marketing" and category in ["marketing", "both"]:
+                        should_include = True
+                    elif filter_type == "both" and category in ["ai", "marketing", "both"]:
+                        should_include = True
+                    
+                    if should_include:
+                        # Formatear fecha
+                        published_at = article.get("publishedAt", "")
+                        if published_at:
+                            try:
+                                dt = datetime.fromisoformat(published_at.replace('Z', '+00:00'))
+                                formatted_date = dt.strftime('%Y-%m-%d')
+                            except:
+                                formatted_date = published_at
+                        else:
+                            formatted_date = ""
+                        
+                        processed_article = {
+                            "title": title,
+                            "description": description[:200],
+                            "url": article.get("url", ""),
+                            "image": article.get("urlToImage") or "https://images.unsplash.com/photo-1488590528505-98d2b5aba04b?w=400&h=200&fit=crop",
+                            "category": category,
+                            "publishedAt": formatted_date
+                        }
+                        processed_articles.append(processed_article)
+                        
+                        if len(processed_articles) >= 15:  # Límite para fallback
+                            break
+                
+                logger.info(f"🔄 Fallback completado: {len(processed_articles)} artículos encontrados")
+                return processed_articles
+            
+        except Exception as e:
+            logger.error(f"❌ Error en fallback: {str(e)}")
+        
+        # Último recurso: ejemplos
+        return self._get_sample_news_by_filter(filter_type)
     
     def _get_sample_news_by_filter(self, filter_type: str) -> List[Dict[str, Any]]:
         """Obtener noticias de ejemplo específicas por filtro"""
