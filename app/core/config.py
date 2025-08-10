@@ -29,7 +29,7 @@ class Settings:
     
     # Server
     HOST: str = os.getenv("HOST", "0.0.0.0")
-    PORT: int = int(os.getenv("PORT", 8000))
+    PORT: int = int(os.getenv("PORT", 8080))
 
 
 settings = Settings()

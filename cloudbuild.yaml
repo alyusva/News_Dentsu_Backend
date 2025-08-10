@@ -27,6 +27,10 @@ steps:
       - '1'
       - '--max-instances'
       - '10'
+      - '--port'
+      - '8080'
+      - '--set-env-vars'
+      - 'NEWS_API_KEY=${_NEWS_API_KEY},OPENAI_API_KEY=${_OPENAI_API_KEY},DEBUG=False'
 
 images:
   - 'gcr.io/$PROJECT_ID/news-platform-api:$SHORT_SHA'

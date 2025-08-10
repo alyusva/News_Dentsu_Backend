@@ -59,10 +59,14 @@ async def health_check():
 if __name__ == "__main__":
     import uvicorn
     
+    # Para Cloud Run, asegurar que usa el puerto correcto
+    port = int(os.getenv("PORT", 8080))
+    host = os.getenv("HOST", "0.0.0.0")
+    
     uvicorn.run(
         "main:app",
-        host=settings.HOST,
-        port=settings.PORT,
+        host=host,
+        port=port,
         reload=settings.DEBUG,
         workers=1 if settings.DEBUG else 4
     )

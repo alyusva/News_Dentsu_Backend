@@ -529,12 +529,12 @@ class NewsAgent:
             
             # VALIDACIÓN ROBUSTA: Envolver toda la ejecución en try-catch
             try:
-            result = self.graph.invoke(initial_state, config={"recursion_limit": 200})
-            
-            final_news = result.get("final_news", [])
-            logger.info(f"🎯 LangGraph Agent completado: {len(final_news)} noticias")
-            
-            return final_news
+                result = self.graph.invoke(initial_state, config={"recursion_limit": 200})
+                
+                final_news = result.get("final_news", [])
+                logger.info(f"🎯 LangGraph Agent completado: {len(final_news)} noticias")
+                
+                return final_news
             except Exception as e:
                 logger.error(f"❌ Error crítico en LangGraph: {str(e)}")
                 return self._get_sample_news_by_filter(filter_type)
