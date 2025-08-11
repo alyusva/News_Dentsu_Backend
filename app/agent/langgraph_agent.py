@@ -54,7 +54,7 @@ class NewsAgent:
         # Inicializar modelo OpenAI
         self.llm = ChatOpenAI(
             api_key=self.openai_api_key,
-            model="gpt-4o-mini",  # Modelo más económico
+            model="gpt-3.5-turbo",  # Modelo más económico y rápido
             temperature=0.3
         )
         
@@ -282,10 +282,10 @@ Responde solo: ai, marketing, both, o none"""
             # Verificar si coincide con el filtro - LÓGICA ESPECÍFICA
             should_include = False
             if filter_type == "ai":
-                # AI: solo artículos puros de AI + artículos mixtos
+                # AI: solo artículos puros de AI
                 should_include = llm_category in ["ai"]
             elif filter_type == "marketing":
-                # Marketing: SOLO artículos puros de marketing (no mixtos)
+                # Marketing: SOLO artículos puros de marketing
                 should_include = llm_category == "marketing"
             elif filter_type == "both":
                 # Both: artículos que específicamente combinen AI y Marketing
@@ -550,11 +550,11 @@ Responde solo: ai, marketing, both, o none"""
         try:
             # Queries BALANCEADAS para cada categoría
             if filter_type == "ai":
-                query = "(\"artificial intelligence\" OR \"machine learning\" OR \"AI technology\" OR \"OpenAI\" OR \"ChatGPT\" OR \"deep learning\" OR \"neural network\" OR \"AI model\" OR \"copilot\" OR \"automation\")"
+                query = "(\"artificial intelligence\" OR \"machine learning\" OR \"AI technology\" OR \"OpenAI\" OR \"ChatGPT\" OR \"deep learning\" OR \"neural network\" OR \"AI model\" OR \"copilot\" OR \"LLM\")"
             elif filter_type == "marketing":
                 query = "(\"digital marketing\" OR \"advertising campaign\" OR \"marketing strategy\" OR \"social media marketing\" OR \"brand management\" OR \"content marketing\" OR \"marketing analytics\" OR \"influencer\" OR \"social media\")"
             else:  # both - BALANCE FORZADO entre AI y Marketing
-                query = "(\"artificial intelligence\" AND marketing) OR (\"machine learning\" AND advertising) OR (\"AI technology\" AND \"social media\") OR (\"ChatGPT\" AND campaign) OR (\"marketing automation\") OR (\"AI powered marketing\") OR (\"digital marketing\" AND \"automation\") OR (\"personalization\" AND algorithm)"
+                query = "(\"ai\" OR \"artificial intelligence\" OR \"machine learning\" OR \"deep learning\" OR \"neural network\" OR \"LLM\") AND (\"marketing\" OR \"advertising\" OR \"campaign\" OR \"digital marketing\" OR \"brand strategy\")"
             
             # Estado inicial ADAPTADO para paralelización
             initial_state = {
@@ -627,8 +627,8 @@ Responde solo: ai, marketing, both, o none"""
                     # Aplicar filtro - LÓGICA ESPECÍFICA
                     should_include = False
                     if filter_type == "ai":
-                        # AI: artículos puros de AI + artículos mixtos
-                        should_include = category in ["ai", "both"]
+                        # AI: artículos puros de AI 
+                        should_include = category == "ai"
                     elif filter_type == "marketing":
                         # Marketing: SOLO artículos puros de marketing
                         should_include = category == "marketing"
