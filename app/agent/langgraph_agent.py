@@ -283,7 +283,7 @@ Responde solo: ai, marketing, both, o none"""
             should_include = False
             if filter_type == "ai":
                 # AI: solo artículos puros de AI + artículos mixtos
-                should_include = llm_category in ["ai", "both"]
+                should_include = llm_category in ["ai"]
             elif filter_type == "marketing":
                 # Marketing: SOLO artículos puros de marketing (no mixtos)
                 should_include = llm_category == "marketing"
