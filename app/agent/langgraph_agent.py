@@ -279,14 +279,17 @@ Responde solo: ai, marketing, both, o none"""
                 logger.warning(f"Error en clasificación LLM: {str(e)}")
                 llm_category = self._classify_by_keywords(title, description)
             
-            # Verificar si coincide con el filtro
+            # Verificar si coincide con el filtro - LÓGICA ESPECÍFICA
             should_include = False
-            if filter_type == "ai" and llm_category in ["ai", "both"]:
-                should_include = True
-            elif filter_type == "marketing" and llm_category in ["marketing", "both"]:
-                should_include = True
-            elif filter_type == "both" and llm_category in ["ai", "marketing", "both"]:
-                should_include = True
+            if filter_type == "ai":
+                # AI: solo artículos puros de AI + artículos mixtos
+                should_include = llm_category in ["ai", "both"]
+            elif filter_type == "marketing":
+                # Marketing: SOLO artículos puros de marketing (no mixtos)
+                should_include = llm_category == "marketing"
+            elif filter_type == "both":
+                # Both: artículos que específicamente combinen AI y Marketing
+                should_include = llm_category == "both"
             
             if not should_include:
                 return {"status": "filtered_out", "article": None}
@@ -621,14 +624,17 @@ Responde solo: ai, marketing, both, o none"""
                     # Clasificar por palabras clave
                     category = self._classify_by_keywords(title, description)
                     
-                    # Aplicar filtro
+                    # Aplicar filtro - LÓGICA ESPECÍFICA
                     should_include = False
-                    if filter_type == "ai" and category in ["ai", "both"]:
-                        should_include = True
-                    elif filter_type == "marketing" and category in ["marketing", "both"]:
-                        should_include = True
-                    elif filter_type == "both" and category in ["ai", "marketing", "both"]:
-                        should_include = True
+                    if filter_type == "ai":
+                        # AI: artículos puros de AI + artículos mixtos
+                        should_include = category in ["ai", "both"]
+                    elif filter_type == "marketing":
+                        # Marketing: SOLO artículos puros de marketing
+                        should_include = category == "marketing"
+                    elif filter_type == "both":
+                        # Both: solo artículos que combinen AI y Marketing
+                        should_include = category == "both"
                     
                     if should_include:
                         # Formatear fecha
