@@ -9,7 +9,7 @@ import json
 import re
 import asyncio
 from typing import List, Dict, Any, TypedDict
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import logging
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -25,6 +25,31 @@ load_dotenv()
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+def normalize_date_to_utc_iso(published_at: str) -> str:
+    """
+    Normalizar fecha al formato ISO 8601 en UTC con sufijo Z
+    
+    Args:
+        published_at: Fecha como string ISO (puede incluir o no la Z)
+    
+    Returns:
+        Fecha en formato ISO 8601 UTC con sufijo Z
+    """
+    if not published_at:
+        return ""
+    
+    try:
+        # Convertir Z a +00:00 para compatibility con fromisoformat
+        dt = datetime.fromisoformat(published_at.replace('Z', '+00:00'))
+        # Convertir a UTC
+        dt_utc = dt.astimezone(timezone.utc)
+        # Retornar en formato ISO con Z
+        return dt_utc.isoformat().replace('+00:00', 'Z')
+    except Exception as e:
+        logger.warning(f"Error normalizando fecha '{published_at}': {e}")
+        # Fallback: retornar la fecha original si no se puede parsear
+        return published_at
 
 class AgentState(TypedDict):
     """Estado del agente LangGraph con procesamiento paralelo"""
@@ -294,16 +319,9 @@ Responde solo: ai, marketing, both, o none"""
             if not should_include:
                 return {"status": "filtered_out", "article": None}
             
-            # Formatear fecha
+            # Formatear fecha en formato ISO 8601 UTC con sufijo Z
             published_at = article.get("publishedAt", "")
-            if published_at:
-                try:
-                    dt = datetime.fromisoformat(published_at.replace('Z', '+00:00'))
-                    formatted_date = dt.strftime('%Y-%m-%d')
-                except:
-                    formatted_date = published_at
-            else:
-                formatted_date = ""
+            formatted_date = normalize_date_to_utc_iso(published_at)
             
             processed_article = {
                 "title": title,
@@ -637,16 +655,9 @@ Responde solo: ai, marketing, both, o none"""
                         should_include = category == "both"
                     
                     if should_include:
-                        # Formatear fecha
+                        # Formatear fecha en formato ISO 8601 UTC con sufijo Z
                         published_at = article.get("publishedAt", "")
-                        if published_at:
-                            try:
-                                dt = datetime.fromisoformat(published_at.replace('Z', '+00:00'))
-                                formatted_date = dt.strftime('%Y-%m-%d')
-                            except:
-                                formatted_date = published_at
-                        else:
-                            formatted_date = ""
+                        formatted_date = normalize_date_to_utc_iso(published_at)
                         
                         processed_article = {
                             "title": title,
@@ -673,9 +684,9 @@ Responde solo: ai, marketing, both, o none"""
     def _get_sample_news_by_filter(self, filter_type: str) -> List[Dict[str, Any]]:
         """Obtener noticias de ejemplo específicas por filtro"""
         
-        from datetime import datetime, timedelta
-        today = datetime.now().strftime('%Y-%m-%d')
-        yesterday = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
+        # Generar fechas en formato ISO 8601 UTC con Z
+        today_utc = datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
+        yesterday_utc = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat().replace('+00:00', 'Z')
         
         ai_news = [
             {
@@ -684,7 +695,7 @@ Responde solo: ai, marketing, both, o none"""
                 "url": "https://example.com/openai-gpt4-turbo",
                 "image": "https://images.unsplash.com/photo-1677442136019-21780ecad995?w=400&h=200&fit=crop",
                 "category": "ai",
-                "publishedAt": today
+                "publishedAt": today_utc
             },
             {
                 "title": "Google's Gemini Ultra Achieves Human-Level Performance on MMLU Benchmark", 
@@ -692,7 +703,7 @@ Responde solo: ai, marketing, both, o none"""
                 "url": "https://example.com/google-gemini-ultra",
                 "image": "https://images.unsplash.com/photo-1488590528505-98d2b5aba04b?w=400&h=200&fit=crop",
                 "category": "ai",
-                "publishedAt": yesterday
+                "publishedAt": yesterday_utc
             },
             {
                 "title": "Microsoft Copilot Integration Transforms Workplace Productivity",
@@ -700,7 +711,7 @@ Responde solo: ai, marketing, both, o none"""
                 "url": "https://example.com/microsoft-copilot",
                 "image": "https://images.unsplash.com/photo-1485827404703-89b55fcc595e?w=400&h=200&fit=crop",
                 "category": "ai",
-                "publishedAt": today
+                "publishedAt": today_utc
             }
         ]
         
@@ -711,7 +722,7 @@ Responde solo: ai, marketing, both, o none"""
                 "url": "https://example.com/programmatic-200b",
                 "image": "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=400&h=200&fit=crop",
                 "category": "marketing",
-                "publishedAt": today
+                "publishedAt": today_utc
             },
             {
                 "title": "Social Commerce Revenue Projected to Hit $1.2T by 2025",
@@ -719,7 +730,7 @@ Responde solo: ai, marketing, both, o none"""
                 "url": "https://example.com/social-commerce-1t",
                 "image": "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=400&h=200&fit=crop",
                 "category": "marketing",
-                "publishedAt": yesterday
+                "publishedAt": yesterday_utc
             },
             {
                 "title": "Cookie-less Future: New Identity Solutions Gain Traction",
@@ -727,7 +738,7 @@ Responde solo: ai, marketing, both, o none"""
                 "url": "https://example.com/cookieless-future",
                 "image": "https://images.unsplash.com/photo-1563013544-824ae1b704d3?w=400&h=200&fit=crop",
                 "category": "marketing",
-                "publishedAt": today
+                "publishedAt": today_utc
             }
         ]
         
@@ -738,7 +749,7 @@ Responde solo: ai, marketing, both, o none"""
                 "url": "https://example.com/ai-personalization-roi",
                 "image": "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=400&h=200&fit=crop",
                 "category": "both",
-                "publishedAt": today
+                "publishedAt": today_utc
             },
             {
                 "title": "ChatGPT Integration Transforms Content Marketing Strategies",
@@ -746,7 +757,7 @@ Responde solo: ai, marketing, both, o none"""
                 "url": "https://example.com/chatgpt-content-marketing",
                 "image": "https://images.unsplash.com/photo-1676299081847-824916de030a?w=400&h=200&fit=crop",
                 "category": "both",
-                "publishedAt": yesterday
+                "publishedAt": yesterday_utc
             },
             {
                 "title": "Computer Vision Technology Revolutionizes Retail Analytics",
@@ -754,7 +765,7 @@ Responde solo: ai, marketing, both, o none"""
                 "url": "https://example.com/computer-vision-retail",
                 "image": "https://images.unsplash.com/photo-1516110833967-0b5716ca1387?w=400&h=200&fit=crop",
                 "category": "both",
-                "publishedAt": today
+                "publishedAt": today_utc
             }
         ]
         
