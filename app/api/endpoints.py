@@ -53,11 +53,11 @@ async def get_news(filter_type: str = "both") -> Dict:
                     filtered_news.append(article)
             news_data = filtered_news
         elif filter_type.lower() == "ai":
-            # Para AI: aceptar artículos de AI o Both
+            # Para AI: aceptar artículos puros de AI
             filtered_news = []
             for article in news_data:
                 article_category = article.get("category", "")
-                if article_category in ["ai", "both"]:
+                if article_category == "ai":
                     filtered_news.append(article)
             news_data = filtered_news
         elif filter_type.lower() == "marketing":
@@ -65,7 +65,7 @@ async def get_news(filter_type: str = "both") -> Dict:
             filtered_news = []
             for article in news_data:
                 article_category = article.get("category", "")
-                if article_category == "marketing":  # Solo marketing puro
+                if article_category == "marketing":  
                     filtered_news.append(article)
             news_data = filtered_news
         
