@@ -64,9 +64,9 @@ class NewsAgent:
         # Archivo para tracking de requests diarias
         self.requests_file = "daily_requests.json"
         
-        # Configuración de paralelización
-        self.batch_size = 10  # Procesar 10 artículos en paralelo
-        self.max_workers = 5  # Máximo 5 threads concurrentes
+        # Configuración de paralelización OPTIMIZADA para Cloud Run
+        self.batch_size = 5  # Reducir de 10 a 5 artículos por lote
+        self.max_workers = 3  # Reducir de 5 a 3 threads concurrentes
     
     def _get_today_key(self) -> str:
         """Obtener clave para el día actual"""
@@ -418,7 +418,7 @@ Responde solo: ai, marketing, both, o none"""
                 # Recoger resultados conforme van completando
                 for future in as_completed(future_to_article):
                     try:
-                        result = future.result(timeout=30)  # 30 segundos timeout por artículo
+                        result = future.result(timeout=15)  # Reducir timeout de 30 a 15 segundos
                         
                         if result["status"] == "processed" and result["article"]:
                             valid_articles.append(result["article"])
@@ -454,13 +454,13 @@ Responde solo: ai, marketing, both, o none"""
             
             processed_count = current_batch_index * batch_size
             
-            if final_count >= 25:  # Límite máximo: 25 artículos
+            if final_count >= 20:  # Reducir límite máximo de 25 a 20 artículos
                 state["should_continue"] = False
                 logger.info(f"🎯 NODO 6: Límite máximo alcanzado ({final_count} artículos)")
             elif processed_count >= raw_count:
                 state["should_continue"] = False
                 logger.info(f"🎯 NODO 6: Todos los lotes procesados ({final_count} artículos finales)")
-            elif current_batch_index >= 8:  # Procesar máximo 8 lotes (80 artículos)
+            elif current_batch_index >= 6:  # Reducir máximo de 8 a 6 lotes (30 artículos)
                 state["should_continue"] = False
                 logger.info(f"🎯 NODO 6: Límite de lotes alcanzado ({final_count} artículos)")
             else:
@@ -475,8 +475,8 @@ Responde solo: ai, marketing, both, o none"""
             final_news = state.get("final_news", [])
             logger.info(f"🔄 NODO 7: Finalizando - {len(final_news)} noticias procesadas")
             
-            # Limitar a máximo 25
-            final_news = final_news[:25]
+            # Limitar a máximo 20 para Cloud Run
+            final_news = final_news[:20]
             
             # Solo usar ejemplos si NO hay noticias reales
             if len(final_news) == 0:
