@@ -186,28 +186,26 @@ class NewsAgent:
         description = str(description or "")
         content = (title + " " + description).lower()
         
-        # Palabras clave para AI - MÁS AMPLIAS Y PERMISIVAS
+        # Palabras clave para AI
         ai_keywords = [
             # Términos directos de AI
             'artificial intelligence', 'machine learning', 'deep learning', 'neural network',
             'chatgpt', 'gpt', 'openai', 'llm', 'ai model', 'ai technology', 'ai system',
             'computer vision', 'natural language processing', 'nlp', 'automation',
             'ai development', 'ai research', 'generative ai', 'ai algorithm', 'ai software',
-            # Términos relacionados con AI (más amplios)
             'ai-powered', 'ai powered', 'ai assistant', 'ai integration', 'copilot',
             'intelligent', 'smart technology', 'automated', 'algorithm', 'data science',
             'predictive', 'recommendation engine', 'voice assistant', 'chatbot',
             'tensorflow', 'pytorch', 'nvidia', 'gpu computing', 'ai startup'
         ]
         
-        # Palabras clave para Marketing - MÁS AMPLIAS Y PERMISIVAS  
+        # Palabras clave para Marketing  
         marketing_keywords = [
             # Términos directos de marketing
             'digital marketing', 'content marketing', 'email marketing', 'social media marketing',
             'advertising campaign', 'brand strategy', 'marketing strategy', 'lead generation',
             'customer engagement', 'marketing analytics', 'conversion rate', 'marketing roi',
             'seo strategy', 'ppc advertising', 'marketing automation', 'influencer marketing',
-            # Términos relacionados con marketing (más amplios)
             'advertising', 'campaign', 'branding', 'social media', 'instagram', 'facebook',
             'twitter', 'linkedin', 'tiktok', 'youtube', 'influencer', 'viral marketing',
             'customer acquisition', 'retention', 'loyalty program', 'personalization',
