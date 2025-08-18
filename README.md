@@ -109,13 +109,28 @@ Variables de entorno requeridas:
 ## Arquitectura
 
 ### Agente LangGraph
-El sistema utiliza un agente LangGraph con procesamiento paralelo:
+El sistema utiliza un agente LangGraph con **7 nodos** especializados para procesamiento paralelo:
 
-1. **Control de límites** - Verificación de requests diarias (100/día NewsAPI)
-2. **Obtención de noticias** - Consulta optimizada a NewsAPI
-3. **Clasificación inteligente** - OpenAI GPT-3.5 turbo + clasificación por palabras clave
-4. **Filtrado de duplicados** - Detección por URL y similitud de títulos
-5. **Procesamiento final** - Formateo y entrega de resultados
+#### Nodos del Agente
+1. **`fetch_raw_news_node`** - Obtiene noticias brutas de NewsAPI (hasta 100 artículos)
+2. **`initialize_batch_processing_node`** - Configura procesamiento en lotes (5 artículos/lote, 3 threads)
+3. **`select_next_batch_node`** - Selecciona siguiente lote de artículos para procesar
+4. **`process_batch_parallel_node`** ⚡ - **CORAZÓN**: Clasifica artículos en paralelo con OpenAI GPT-3.5
+5. **`increment_batch_index_node`** - Avanza al siguiente lote de procesamiento
+6. **`check_batch_completion_node`** - Decide si continuar procesando o finalizar
+7. **`finalize_results_node`** - Prepara resultados finales (máximo 20 artículos)
+
+#### Flujo de Procesamiento
+```
+1→2→3→4→5→6→7 (con loop 3↔6 hasta completar todos los lotes)
+```
+
+#### Características del Agente
+- **Procesamiento paralelo**: 3 threads concurrentes con ThreadPoolExecutor
+- **Control de límites**: Verificación de requests diarias (100/día NewsAPI)
+- **Clasificación inteligente**: OpenAI GPT-3.5 turbo + fallback por palabras clave
+- **Filtrado de duplicados**: Detección por URL limpia y similitud de títulos
+- **Optimización Cloud Run**: Lotes pequeños para evitar timeouts
 
 ### Flujo de datos
 ```
