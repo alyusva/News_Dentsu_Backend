@@ -115,7 +115,7 @@ El sistema utiliza un agente LangGraph con **7 nodos** especializados para proce
 1. **`fetch_raw_news_node`** - Obtiene noticias brutas de NewsAPI (hasta 100 artículos)
 2. **`initialize_batch_processing_node`** - Configura procesamiento en lotes (5 artículos/lote, 3 threads)
 3. **`select_next_batch_node`** - Selecciona siguiente lote de artículos para procesar
-4. **`process_batch_parallel_node`** ⚡ - **CORAZÓN**: Clasifica artículos en paralelo con OpenAI GPT-3.5
+4. **`process_batch_parallel_node`**: Clasifica artículos en paralelo con OpenAI GPT-3.5
 5. **`increment_batch_index_node`** - Avanza al siguiente lote de procesamiento
 6. **`check_batch_completion_node`** - Decide si continuar procesando o finalizar
 7. **`finalize_results_node`** - Prepara resultados finales (máximo 20 artículos)
