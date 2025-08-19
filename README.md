@@ -149,7 +149,7 @@ NewsAPI → LangGraph Agent → OpenAI Classification → Duplicate Filter → J
 ## Límites y Control
 
 - 100 requests/día a NewsAPI (plan gratuito)
-- Hasta 25 noticias por respuesta
+- Hasta 20 noticias por respuesta
 - Tracking diario de requests
 - Fallback con clasificación por palabras clave
 
